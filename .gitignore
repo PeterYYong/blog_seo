@@ -1,0 +1,21 @@
+# Security (CRITICAL)
+secrets.json
+.streamlit/secrets.toml
+.streamlit/
+
+# Python / Environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Data & Reports
+reports/
+*.csv
+*.log
+
+# Editor
+.vscode/
+.idea/
