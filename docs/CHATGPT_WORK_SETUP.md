@@ -37,7 +37,18 @@ Naver·YouTube 키가 있어도 사용 API가 활성화되지 않았거나 네�
 
 ## 2. ChatGPT 연결
 
-ChatGPT 개발자 모드에서 MCP 서버를 추가합니다. 이 저장소는 아직 최종 사용자 인증 계층을 구현하지 않았으므로 **Secure MCP Tunnel을 기본 선택**으로 사용하세요. 공개 HTTPS `https://<host>/mcp`는 MCP 표준 인증, 사용자별 속도/비용 제한, secret manager, 로그 마스킹을 붙인 뒤에만 사용합니다. Workspace 관리자가 개발자 모드와 사용자 역할의 앱 접근을 허용해야 할 수 있습니다.
+ChatGPT는 로컬 MCP에 직접 접속하지 않습니다. 이 저장소는 아직 최종 사용자 인증 계층을 구현하지 않았으므로, 로컬/사설망 서버에는 **Secure MCP Tunnel을 기본 선택**으로 사용하세요. 공개 HTTPS `https://<host>/mcp`는 MCP 표준 인증, 사용자별 속도/비용 제한, secret manager, 로그 마스킹을 붙인 뒤에만 사용합니다.
+
+ChatGPT Business 또는 Enterprise/Edu의 웹 화면에서 다음 순서로 연결합니다.
+
+1. Workspace 관리자/소유자가 Developer mode 사용을 허용합니다. Enterprise/Edu는 필요한 사용자에게 RBAC 권한도 부여합니다.
+2. 관리자/소유자는 `Workspace settings > Apps > Create`, 허가된 사용자는 `Settings > Apps > Create`로 이동합니다.
+3. Secure MCP Tunnel이 제공한 원격 endpoint와 앱 메타데이터를 입력하고 인증 방식을 선택합니다.
+4. `Scan Tools`를 실행해 이 서버의 8개 도구를 확인한 뒤 앱을 생성합니다.
+5. 새 채팅에서 Dev 표시가 붙은 앱을 선택하고 먼저 `get_source_status`를 호출합니다.
+6. 내부 테스트가 끝나면 관리자/소유자가 Workspace 초안을 검토해 게시합니다.
+
+Custom MCP 앱은 ChatGPT 웹에서 테스트합니다. 모바일에서는 현재 지원되지 않습니다. Business에서는 관리자/소유자만 Developer mode와 게시를 다루며, Enterprise/Edu는 RBAC로 개발자와 앱 접근 범위를 나눌 수 있습니다.
 
 OpenAI 공식 안내:
 
