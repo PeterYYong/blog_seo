@@ -76,7 +76,7 @@ def main():
     df = pd.DataFrame(results)
     
     # 3. Sections
-    # Section 1: High Volume (Hot Topics)
+    # Section 1: High monthly search-volume estimates (not real-time trends)
     hot_topics = df.sort_values(by='Monthly_Search_Volume', ascending=False).head(20)
     
     # Section 2: Blue Ocean (Sk < 1.0)
@@ -97,13 +97,13 @@ def main():
 **Timestamp:** {timestamp}
 **Total Analyzed:** {len(df)} keywords
 
-## 1. 🔥 화제의 키워드 (High Volume Top 20)
-*People are searching for this right now.*
+## 1. 월간 검색 수요 상위 후보 (High Volume Top 20)
+*Monthly demand estimate; this does not prove a current spike.*
 
 {hot_topics[['Keyword', 'Monthly_Search_Volume', 'Total_Docs', 'Saturation_Index', 'Efficiency_Score']].to_markdown(index=False)}
 
-## 2. 💎 블루오션 기회 ($S_k < 1.0$)
-*Good volume, Low content supply. Chance to rank!*
+## 2. 낮은 레거시 공급비율 후보 ($S_k < 1.0$)
+*The ratio is a weak editorial proxy, not a probability of ranking.*
 
 {blue_ocean[['Keyword', 'Monthly_Search_Volume', 'Total_Docs', 'Saturation_Index', 'Efficiency_Score']].to_markdown(index=False) if not blue_ocean.empty else "No Blue Ocean keywords found in this niche."}
 """

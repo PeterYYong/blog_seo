@@ -24,8 +24,10 @@ except ImportError:
 
 def fetch_trending_keywords(limit: int = 5):
     """
-    Scrapes trending keywords from Signal.bz.
-    Returns Top N keywords.
+    Scrape a third-party trend page for backwards compatibility.
+
+    An empty list means that the source is unavailable or could not be parsed.
+    Never replace a failed live source with invented example keywords.
     """
     url = "https://signal.bz/news"
     print(f"   📡 Scraping trends from {url}...")
@@ -47,22 +49,23 @@ def fetch_trending_keywords(limit: int = 5):
                 keywords.append(clean_text)
                 
         if not keywords:
-             print("   ⚠️ Scraper found empty list. Using fallback.")
-             # Fallback
-             return ["삼성전자", "손흥민", "비트코인", "날씨", "환율"][:limit]
+            print("   ⚠️ Trend source returned no parseable keywords.")
+            return []
             
         return keywords[:limit]
         
     except Exception as e:
         print(f"   ❌ Scraper Error: {e}")
-        # Fallback
-        return ["삼성전자", "손흥민", "비트코인", "날씨", "환율"][:limit]
+        return []
 
 def main():
     print("🌊 [Trend Deep Diver] Starting Analysis...")
     
     # 1. Crawl Top 5
     trends = fetch_trending_keywords(limit=5)
+    if not trends:
+        print("   ❌ No verified trend data. Stop instead of generating fallback topics.")
+        return
     print(f"   🔥 Identified Top 5 Trends: {trends}")
     
     # 2. Expand (Deep Dive)
@@ -142,15 +145,15 @@ def main():
 - **Total Keywords Scanned:** {len(unique_targets)}
 - **Blue Ocean Found:** {len(blue_ocean)}
 
-## 2. 🏆 Blue Ocean Opportunities ($S_k < 5.0$)
-*Sorted by Efficiency Score ($E_k$). Higher is better.*
+## 2. Legacy low-supply-ratio candidates ($S_k < 5.0$)
+*Sorted by a local heuristic. This is not an official Naver score or ranking probability.*
 
 {table_md if not blue_ocean.empty else "No Blue Ocean keywords found (All highly competitive)."}
 
 ## 3. 💡 Strategy
-- Pick the top keywords from the list above.
-- Ensure content addresses the specific intent (e.g. 'Review', 'How-to' implied by suffixes).
-- If list is empty, the trends are currently 'Red Ocean'. Consider targeting niche sub-questions not yet covered.
+- Re-check candidates with official Naver DataLab and YouTube evidence before calling them current opportunities.
+- Inspect the actual reader intent and write only from verified facts.
+- If the list is empty, the legacy ratio found no candidate; it does not prove the market is a red ocean.
 """
 
     with open(report_file, "w", encoding="utf-8") as f:

@@ -31,7 +31,8 @@ def main():
     parser.add_argument("--seed", type=str, default="캠핑의자", help="Seed keyword for mining")
     args = parser.parse_args()
 
-    print(f"🤖 [닥터스톤 Real-Data 에이전트] 가동 시작...")
+    print(f"🤖 [Legacy Keyword Ratio Tool] 시작...")
+    print("   ⚠️ Sk/Ek are local heuristics, not Naver ranking scores or probabilities.")
 
     # 1. 시드 키워드 정의
     seed_keyword = args.seed
@@ -141,18 +142,18 @@ def main():
 - **Keywords Passed Filter (Sk < 5.0):** {len(df_filtered)}
 - **Drop Rate:** {dropped_count / initial_count * 100:.1f}%
 
-## Recommended Keywords (Sorted by Efficiency Ek)
+## Legacy Candidate Keywords (Sorted by Efficiency Ek)
 
 | Note |
 | --- |
-| **Sk (Saturation Index)** | `< 0.5` Blue Ocean, `0.5 ~ 1.0` Good, `1.0 ~ 5.0` Competitive |
-| **Ek (Efficiency Score)** | Higher is better. Balancing volume, conversion, and competition. |
+| **Sk (Saturation Ratio)** | Blog result count divided by estimated monthly search demand; a weak proxy only |
+| **Ek (Legacy Efficiency)** | Local sorting heuristic; not an official Naver metric |
 
 {markdown_table}
 
 ## Next Actions
-- Select top 3 keywords with high `Ek` and `Sk < 1.0`.
-- Create content targeting the identified `SmartBlock Type`.
+- Re-check candidates with the MCP DataLab and YouTube evidence workflow.
+- Inspect the actual search-result intent manually; no official API exposes SmartBlock eligibility.
 """
     
     with open(report_filename, "w", encoding="utf-8") as f:

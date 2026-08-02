@@ -1,23 +1,18 @@
 import pandas as pd
 import math
 
+
+MIN_MEANINGFUL_VOLUME = 50
+
 def calculate_saturation(doc_count: int, search_volume: int) -> float:
     """
-    Calculates the Market Saturation Index (Sk).
-    Formula: Sk = Total Docs / Monthly Search Vol
-    
-    [Safety Logic]
-    1. Cut-off: If Search Volume < 50, return 0.0 (Statistically insignificant).
-    2. Smoothing: If Search Volume is 0, return 999.0 (High Saturation/Error).
+    Calculate the legacy document-count/search-volume ratio.
+
+    This is a weak content-supply proxy, not a Naver ranking score.  A zero or
+    missing search volume must never become a perfect (zero) saturation score.
     """
-    # 1. Volume Cut-off
-    if search_volume < 50:
-        return 0.0
-        
-    # 2. Prevent Division by Zero
-    if search_volume == 0:
-        return 999.0
-        
+    if search_volume <= 0:
+        return math.inf
     return doc_count / search_volume
 
 def calculate_efficiency(saturation: float, search_volume: int, conversion_rate: float = 0.05) -> float:
@@ -30,8 +25,7 @@ def calculate_efficiency(saturation: float, search_volume: int, conversion_rate:
     2. Smoothing: Denominator uses (Sk + 1.0) to prevent division by zero if Sk=0.
     3. Log Safety: Uses math.log10(max(search_volume, 1)).
     """
-    # 1. Volume Cut-off
-    if search_volume < 50:
+    if search_volume < MIN_MEANINGFUL_VOLUME or not math.isfinite(saturation):
         return 0.0
         
     # 3. Log Safety & Formula Application
@@ -45,10 +39,10 @@ def calculate_efficiency(saturation: float, search_volume: int, conversion_rate:
 
 def filter_keywords(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Filters out keywords where Sk >= 5.0.
-    Also handles the case where Sk is 0.0 due to low volume (optional, but strictly kept < 5.0 per user rule).
-    
-    Expects 'saturation_index' or 'Saturation_Index' column.
+    Apply the legacy heuristic while excluding low/unknown-demand rows.
+
+    The threshold is retained for backwards compatibility only.  Use the
+    evidence-first opportunity workflow for recommendations.
     """
     target_col = 'saturation_index'
     if 'Saturation_Index' in df.columns:
@@ -59,9 +53,18 @@ def filter_keywords(df: pd.DataFrame) -> pd.DataFrame:
         # Assuming DataFetcher always provides it via main.py loop.
         raise ValueError("DataFrame must contain 'Saturation_Index' column")
     
-    # Filter: Keep only where Sk < 5.0
-    # Note: If Sk == 0.0 (Low Volume), it passes this filter.
-    # Users should sort by Efficiency to push 0.0 scores to the bottom.
-    filtered_df = df[df[target_col] < 5.0].copy()
+    volume_col = None
+    for candidate in ("Monthly_Search_Volume", "monthly_search_volume"):
+        if candidate in df.columns:
+            volume_col = candidate
+            break
+    if volume_col is None:
+        raise ValueError("DataFrame must contain a monthly search-volume column")
+
+    filtered_df = df[
+        (df[volume_col] >= MIN_MEANINGFUL_VOLUME)
+        & df[target_col].map(math.isfinite)
+        & (df[target_col] < 5.0)
+    ].copy()
     
     return filtered_df
