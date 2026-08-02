@@ -5,3 +5,5 @@ beautifulsoup4
 tabulate
 lxml
 openpyxl
+mcp>=1.28,<2
+pytest>=8,<9
