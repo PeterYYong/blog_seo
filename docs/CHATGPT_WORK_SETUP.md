@@ -39,23 +39,23 @@ Naver·YouTube 키가 있어도 사용 API가 활성화되지 않았거나 네�
 
 ChatGPT는 로컬 MCP에 직접 접속하지 않습니다. 이 저장소는 아직 최종 사용자 인증 계층을 구현하지 않았으므로, 로컬/사설망 서버에는 **Secure MCP Tunnel을 기본 선택**으로 사용하세요. 공개 HTTPS `https://<host>/mcp`는 MCP 표준 인증, 사용자별 속도/비용 제한, secret manager, 로그 마스킹을 붙인 뒤에만 사용합니다.
 
-ChatGPT Business 또는 Enterprise/Edu의 웹 화면에서 다음 순서로 연결합니다.
+ChatGPT 웹 화면에서 다음 순서로 연결합니다. Developer mode와 Tunnel 사용 가능 여부는 계정 및 Workspace 정책에 따라 달라질 수 있으므로 Railway 배포 전에 먼저 확인합니다.
 
-1. Workspace 관리자/소유자가 Developer mode 사용을 허용합니다. Enterprise/Edu는 필요한 사용자에게 RBAC 권한도 부여합니다.
-2. 관리자/소유자는 `Workspace settings > Apps > Create`, 허가된 사용자는 `Settings > Apps > Create`로 이동합니다.
-3. Secure MCP Tunnel이 제공한 원격 endpoint와 앱 메타데이터를 입력하고 인증 방식을 선택합니다.
-4. `Scan Tools`를 실행해 이 서버의 8개 도구를 확인한 뒤 앱을 생성합니다.
-5. 새 채팅에서 Dev 표시가 붙은 앱을 선택하고 먼저 `get_source_status`를 호출합니다.
-6. 내부 테스트가 끝나면 관리자/소유자가 Workspace 초안을 검토해 게시합니다.
+1. `Settings > Security and login > Developer mode`를 켭니다.
+2. [ChatGPT Plugins](https://chatgpt.com/plugins)에서 `+` 버튼을 누릅니다.
+3. Connection을 `Tunnel`로 선택하고 앞에서 만든 Tunnel을 선택하거나 `tunnel_id`를 입력합니다.
+4. 연결을 생성한 뒤 이 서버의 8개 도구와 메타데이터를 확인합니다. 화면 버전에 따라 이 과정이 `Apps > Create` 또는 `Scan Tools`로 표시될 수 있습니다.
+5. 새 채팅에서 생성한 Plugin/App을 도구 메뉴에 추가하고 먼저 `get_source_status`를 호출합니다.
+6. 도구 이름·설명·스키마를 바꾼 뒤에는 연결 화면에서 Refresh 또는 Scan Tools를 다시 실행합니다.
 
-Custom MCP 앱은 ChatGPT 웹에서 테스트합니다. 모바일에서는 현재 지원되지 않습니다. Business에서는 관리자/소유자만 Developer mode와 게시를 다루며, Enterprise/Edu는 RBAC로 개발자와 앱 접근 범위를 나눌 수 있습니다.
+최초 연결과 검증은 메뉴 구성이 가장 명확한 PC 웹브라우저에서 진행합니다. 조직 Workspace에서는 관리자가 Developer mode, Tunnel, Plugin/App 접근 권한을 별도로 제한할 수 있습니다.
 
 OpenAI 공식 안내:
 
 - [Build an MCP server](https://developers.openai.com/plugins/build/mcp-server)
 - [Define tools](https://developers.openai.com/plugins/plan/tools)
-- [Connect and test an MCP app](https://developers.openai.com/apps-sdk/deploy/testing)
-- [Developer mode and MCP apps](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt)
+- [Connect and test a plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+- [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 
 이 서버의 도구는 모두 읽기 전용입니다. 외부 API를 조회하는 도구는 `openWorldHint=true`, 로컬 검수 도구는 `openWorldHint=false`로 선언되어 있습니다.
 
@@ -79,6 +79,10 @@ Naver 카페·지식iN, Daum 카페, Bluesky와 사용 가능한 SNS에서 실�
 - Cloudflare: 인증 게이트웨이·Workers/Container·Tunnel 중심의 운영을 원할 때
 - Vercel: Python 런타임 제약을 확인한 뒤 웹 배포 흐름을 원할 때
 - 기존 서버: Docker 또는 프로세스 관리가 가능한 환경이 있을 때
+
+PC를 꺼도 계속 쓰는 개인용 기본 배포는 **Railway 한 개 서비스 안에서 MCP 서버와 `tunnel-client`를 함께 실행하는 방식**입니다. 저장소 루트의 `Dockerfile`과 `deploy/start-cloud.sh`가 두 프로세스를 시작하며, 하나가 멈추면 배포도 종료해 Railway가 다시 시작할 수 있게 합니다. 공개 Domain은 만들지 않습니다.
+
+IT 비전공자용 전체 화면 순서는 [Beginner cloud setup](BEGINNER_CLOUD_SETUP.md)을 따르세요.
 
 호스팅을 선택하기 전에는 플러그인을 설치할 필요가 없습니다. 운영 배포 시에는 API 키 저장, 요청 인증, 호출량 제한, 원문 응답 로그의 개인정보·비밀값 마스킹을 먼저 정하세요.
 

@@ -33,6 +33,8 @@
 
 자세한 실행 순서는 [Agent workflow](docs/AGENT_WORKFLOW.md), 판단식과 한계는 [Methodology](METHODOLOGY.md), 소스별 접근·비용·보류 이유는 [Community source review](docs/COMMUNITY_SOURCE_REVIEW.md), 키 발급 절차는 [API credential setup](docs/API_CREDENTIAL_SETUP.md)을 참고하세요.
 
+PC를 켜 두지 않는 Railway + Secure MCP Tunnel 방식은 [Beginner cloud setup](docs/BEGINNER_CLOUD_SETUP.md)에 화면 순서와 오류 해결법까지 정리되어 있습니다.
+
 ## 빠른 시작
 
 Python 3.10 이상을 권장합니다.

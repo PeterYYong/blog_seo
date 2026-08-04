@@ -1,0 +1,4 @@
+# Minimal dependencies for the always-on MCP service.
+# The Streamlit/pandas packages in requirements.txt are only needed by the legacy UI.
+mcp>=1.28,<2
+requests>=2.31,<3
