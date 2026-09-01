@@ -1,108 +1,87 @@
-# 🧪 Naver Search Ecology Architect (닥터스톤 SEO 에이전트)
+# Naver Blog SEO MCP · WebMCP Challenge
 
-**2026년 네이버 검색 환경(SmartBlock, AiRSearch)**에 최적화된 자율형 키워드 발굴 에이전트입니다.  
-단순 검색량이 아닌 **시장 포화도($S_k$)**와 **키워드 효율성($E_k$)** 수식을 기반으로, 경쟁이 적고 검색 니즈가 확실한 **'블루오션'** 토픽을 과학적으로 발굴합니다.
+Naver 블로그 키워드의 포화도(`Sk`)와 효율성(`Ek`)을 계산하고, 같은 8개 기능을 **MCP Streamable HTTP**와 브라우저의 **WebMCP** 인터페이스로 제공하는 실행 가능한 데모입니다. 라이브 데이터가 없을 때는 값을 추측하지 않고 명시적인 구조화 오류를 반환합니다.
 
----
+## 핵심 기능
 
-## 🚀 주요 기능 (Key Features)
+- `navigator.modelContext.registerTool()`로 등록되는 8개 브라우저 도구
+- MCP `tools/list`에서 동일한 이름으로 노출되는 8개 서버 도구
+- 모든 성공 결과에 `retrieved_at`, `evidence`, `sources`; 모든 오류에 안정적인 `code`, `message`, `retryable`
+- 명시적 문자열 길이, 수치 범위, 배치 크기 검증
+- 비밀값 자체가 아닌 환경 변수 설정 여부만 노출
+- X, Reddit, Threads는 비용/권한 없는 연동을 시도하지 않고 `not configured`로 표시
 
-### 1. 🧠 Auto-Brainstorming (자율 확장)
-- 사용자가 "맛집" 같은 대주제만 던져도, 에이전트가 알아서 **"데이트 코스", "현지인 맛집", "가성비 오마카세"** 등으로 세부 주제를 확장합니다.
-- 상황별 최적의 접미사(Suffix)를 조합하여 롱테일 키워드를 생성합니다.
+## 도구 목록
 
-### 2. 🌊 Trend Deep Diver (실시간 트렌드 분석)
-- **`src/trend_hunter.py`**
-- 실시간 급상승 검색어(Signal.bz)를 크롤링하여 트렌드를 파악합니다.
-- 해당 트렌드 키워드를 시드로 삼아 심층 분석(Deep Dive)을 수행, 당장 글을 써야 할 '핫한' 주제를 선별합니다.
+| 도구 | 역할 | 라이브 API 필요 |
+|---|---|---:|
+| `expand_keywords` | 규칙 기반 롱테일 후보 확장 | 아니요 |
+| `calculate_seo_metrics` | 제공한 측정값으로 Sk/Ek 계산 | 아니요 |
+| `analyze_keyword` | 단일 키워드 분류 | 아니요 |
+| `analyze_keyword_batch` | 최대 50개 분석 및 순위화 | 아니요 |
+| `get_related_keywords` | Naver Ads 연동의 안전한 가용성 응답 | 예 |
+| `get_trending_keywords` | 선택적 트렌드 연동의 안전한 상태 응답 | 예 |
+| `get_configuration_status` | 비밀 노출 없는 설정 상태 | 아니요 |
+| `health_check` | 전송 계층 준비 상태 | 아니요 |
 
-### 3. 🦈 Niche Hunter (니치 마켓 발굴)
-- **`src/niche_hunter.py`**
-- 특정 관심사(예: "미국 주식")를 입력하면, 네이버 연관 검색어 API를 통해 **1,000개 이상의 관련 키워드**를 싹쓸이합니다.
-- 대량의 데이터 속에서 문서 발행량 대비 검색량이 높은 **숨겨진 보석(Blue Ocean)**을 찾아냅니다.
+## 로컬 실행
 
-### 4. 🧮 Scientific Scoring (과학적 지표)
-모든 분석은 닥터스톤만의 고유 공식을 따릅니다.
-- **$S_k$ (Saturation Index, 포화도):** $\frac{\text{총 문서수}}{\text{월간 검색량}}$
-  - $0.1 \le S_k < 1.0$: **💎 블루오션 (강력 추천)**
-  - $S_k \ge 5.0$: **💀 레드오션 (진입 금지)**
-- **$E_k$ (Efficiency Score, 효율성):** 검색 규모와 전환율을 고려한 최종 점수.
-
----
-
-## 🛠️ 설치 및 설정 (Setup)
-
-### 1. 필수 라이브러리 설치
 ```bash
-pip install requests pandas tabulate beautifulsoup4 lxml
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+uvicorn src.mcp_server:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. API 키 설정 (`secrets.json`)
-네이버 검색광고 API와 검색(Search) API 키가 필요합니다. 프로젝트 루트에 `secrets.json` 파일을 생성하세요.
+- WebMCP 데모: <http://localhost:8000/>
+- MCP Streamable HTTP: `http://localhost:8000/mcp/`
+- 헬스 체크: <http://localhost:8000/healthz>
 
-**`secrets.json` 형식:**
+WebMCP가 활성화된 지원 브라우저에서는 헤더가 `8 tools registered`로 바뀝니다. 그 외 브라우저에서도 동일 계산을 직접 체험할 수 있지만 에이전트 등록은 되지 않습니다.
+
+## MCP 클라이언트 예시
+
 ```json
 {
-  "NAVER_AD_API_KEY": "YOUR_AD_API_KEY",
-  "NAVER_AD_SECRET_KEY": "YOUR_AD_SECRET_KEY",
-  "NAVER_CUSTOMER_ID": "YOUR_CUSTOMER_ID",
-  "NAVER_CLIENT_ID": "YOUR_SEARCH_CLIENT_ID",
-  "NAVER_CLIENT_SECRET": "YOUR_SEARCH_CLIENT_SECRET"
+  "mcpServers": {
+    "naver-blog-seo": {
+      "url": "http://localhost:8000/mcp/"
+    }
+  }
 }
 ```
 
----
+기존 Secure MCP Tunnel에는 공개 URL 대신 현재 내부 서비스의 `/mcp/` 경로를 지정합니다. 저장소에는 Tunnel ID나 토큰을 기록하지 않습니다.
 
-## 💻 사용 방법 (Usage)
+## 선택적 환경 변수
 
-### 1️⃣ 기본 키워드 분석 (Basic Agent)
-특정 키워드 하나에 대해 아이디어를 확장하고 분석합니다.
+```dotenv
+NAVER_AD_API_KEY=example
+NAVER_AD_SECRET_KEY=example
+NAVER_CUSTOMER_ID=example
+NAVER_CLIENT_ID=example
+NAVER_CLIENT_SECRET=example
+```
+
+실제 값은 커밋하지 마세요. Challenge 데모의 계산·확장 도구는 키 없이 작동합니다. 현재 공개 데모 서버는 운영 배포를 보호하기 위해 라이브 조회를 의도적으로 수행하지 않습니다.
+
+## Docker
+
 ```bash
-python src/main.py --seed "강남역 맛집"
+docker build -t naver-blog-seo-webmcp .
+docker run --rm -p 8000:8000 naver-blog-seo-webmcp
+curl --fail http://localhost:8000/healthz
 ```
 
-### 2️⃣ 실시간 트렌드 사냥 (Trend Hunter)
-지금 뜨고 있는 이슈 중 블루오션 키워드를 찾습니다.
+## 테스트
+
 ```bash
-python src/trend_hunter.py
+pytest -q
+python -m compileall -q src tests
 ```
 
-### 3️⃣ 분야별 대량 채굴 (Niche Hunter)
-특정 카테고리를 입력하면 관련 키워드 수백~수천 개를 분석하여 리포트를 만듭니다. (시간 소요됨)
-```bash
-### 4️⃣ 웹 대시보드 (Streamlit)
-웹 브라우저에서 편리하게 분석할 수 있습니다.
-```bash
-streamlit run src/app.py
-```
-- **Mode A:** 단일 키워드 분석
-- **Mode B:** 실시간 트렌드 딥 다이브
-- **Mode C:** 니치 마켓 헌터 (카테고리 채굴)
+구현 구조, 공식 요구사항 매핑, 3분 데모와 제출 전 체크리스트는 [`CHALLENGE_SUBMISSION.md`](CHALLENGE_SUBMISSION.md)를 참고하세요. 기존 Streamlit 분석 화면은 `streamlit run src/app.py`로 계속 실행할 수 있습니다.
 
----
+## 데이터 해석 주의
 
-## 📂 파일 구조 (File Structure)
-
-```
-📂 루트 (Topic/)
-├── 📄 main.py                # (Legacy) 구형 진입점
-├── 📄 secrets.json           # API 키 저장소 (필수)
-├── 📄 README.md              # 프로젝트 설명서
-│
-├── 📂 src/                   # 핵심 소스 코드
-│   ├── 📄 main.py            # [메인] 기본 에이전트 실행 파일
-│   ├── 📄 trend_hunter.py    # [모듈] 실시간 트렌드 분석기
-│   ├── 📄 niche_hunter.py    # [모듈] 대량 연관검색어 채굴기
-│   ├── 📄 data_fetcher.py    # Naver API 연동 및 데이터 수집
-│   ├── 📄 calculator.py      # Sk, Ek 지표 계산 로직
-│   └── 📄 keyword_expander.py# 브레인스토밍 및 키워드 확장 로직
-│
-└── 📂 reports/               # 분석 결과 리포트 저장소 (.md)
-    ├── 📄 result_REAL_...    # 기본 분석 결과
-    ├── 📄 TREND_HUNT_...     # 트렌드 분석 결과
-    └── 📄 NICHE_...          # 니치 마켓 분석 결과
-```
-
----
-
-**Tip:** 생성된 Markdown 리포트(`reports/*.md`)는 VS Code나 Obsidian 등에서 열어보면 깔끔한 표 형태로 확인할 수 있습니다.
+검색량 50 미만은 통계적으로 불충분한 값으로 분류합니다. 계산 결과는 콘텐츠 기획 보조 지표이며 검색 노출을 보장하지 않습니다. 자세한 수식은 [`METHODOLOGY.md`](METHODOLOGY.md)에 있습니다.
