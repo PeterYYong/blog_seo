@@ -8,6 +8,7 @@ from streamlit.testing.v1 import AppTest
 
 APP_PATH = Path(__file__).resolve().parents[1] / "src" / "app.py"
 TEST_APP_PASSWORD = "test-only-password-at-least-20-chars"
+FOUR_DIGIT_PIN = "0123"
 FAKE_SECRETS = {
     "APP_PASSWORD": TEST_APP_PASSWORD,
     "NAVER_AD_API_KEY": "ad-key",
@@ -185,13 +186,13 @@ def test_streamlit_app_fails_closed_without_app_password(monkeypatch):
     assert not any(button.label == "키워드 분석 시작" for button in app.button)
 
 
-def test_streamlit_app_fails_closed_with_a_short_configured_password():
+def test_streamlit_app_fails_closed_with_an_invalid_short_password():
     app = AppTest.from_file(APP_PATH, default_timeout=20)
     app.secrets = {"APP_PASSWORD": "too-short"}
     app.run()
 
     assert not app.exception
-    assert any("20자 이상" in item.value for item in app.error)
+    assert any("숫자 4자리 PIN 또는 20~256자" in item.value for item in app.error)
     assert not any(button.label == "로그인" for button in app.button)
 
 
@@ -201,8 +202,36 @@ def test_streamlit_app_fails_closed_with_an_overlong_configured_password():
     app.run()
 
     assert not app.exception
-    assert any("256자 이하" in item.value for item in app.error)
+    assert any("숫자 4자리 PIN 또는 20~256자" in item.value for item in app.error)
     assert not any(button.label == "로그인" for button in app.button)
+
+
+def test_streamlit_app_fails_closed_with_four_non_digit_characters():
+    app = AppTest.from_file(APP_PATH, default_timeout=20)
+    app.secrets = {"APP_PASSWORD": "abcd"}
+    app.run()
+
+    assert not app.exception
+    assert any("숫자 4자리 PIN 또는 20~256자" in item.value for item in app.error)
+    assert not any(button.label == "로그인" for button in app.button)
+
+
+def test_four_digit_pin_rejects_wrong_value_then_unlocks():
+    app = AppTest.from_file(APP_PATH, default_timeout=20)
+    app.secrets = {**FAKE_SECRETS, "APP_PASSWORD": FOUR_DIGIT_PIN}
+    app.run()
+
+    app.text_input[0].input("9999")
+    button_with_label(app, "로그인").click()
+    app.run()
+    assert any("올바르지 않습니다" in item.value for item in app.error)
+
+    app.text_input[0].input(FOUR_DIGIT_PIN)
+    button_with_label(app, "로그인").click()
+    app.run()
+
+    assert app.title[0].value == "🧭 네이버 블로그 주제 기회 탐색기"
+    assert any("4자리 PIN 보호 사용 중" in item.value for item in app.warning)
 
 
 def test_streamlit_password_login_rejects_wrong_value_then_unlocks():
@@ -228,7 +257,7 @@ def test_password_rotation_invalidates_an_existing_authenticated_session():
     app = login(app.run())
     assert app.title[0].value == "🧭 네이버 블로그 주제 기회 탐색기"
 
-    rotated_password = "rotated-test-password-at-least-20-chars"
+    rotated_password = FOUR_DIGIT_PIN
     app.secrets = {**FAKE_SECRETS, "APP_PASSWORD": rotated_password}
     app.run()
 

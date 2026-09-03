@@ -21,6 +21,9 @@ from typing import Any
 APP_PASSWORD_KEY = "APP_PASSWORD"
 AUTH_SESSION_STATE_KEY = "_app_authenticated"
 AUTH_THROTTLE_STATE_KEY = "_app_password_throttle"
+APP_PIN_LENGTH = 4
+MIN_LONG_PASSWORD_LENGTH = 20
+MAX_APP_PASSWORD_LENGTH = 256
 DEFAULT_MAX_FAILURES = 5
 DEFAULT_COOLDOWN_SECONDS = 5 * 60.0
 DEFAULT_AUTH_SESSION_TTL_SECONDS = 12 * 60 * 60.0
@@ -70,20 +73,27 @@ class PasswordAttemptResult:
         return self.status is AuthenticationStatus.LOCKED
 
 
-def _password_from(source: Mapping[str, Any] | None) -> str | None:
-    """Read a usable password without coercing or exposing its value."""
+_MISSING = object()
+
+
+def _password_from(
+    source: Mapping[str, Any] | None,
+) -> tuple[bool, str | None]:
+    """Return whether a source defines the key and its usable string value."""
 
     if source is None:
-        return None
+        return False, None
     try:
-        value = source.get(APP_PASSWORD_KEY)
+        value = source.get(APP_PASSWORD_KEY, _MISSING)
     except Exception:
         # Some lazy mappings (including an unconfigured secrets provider) may
         # raise while being read.  Treat that source as unavailable.
-        return None
+        return False, None
+    if value is _MISSING:
+        return False, None
     if not isinstance(value, str) or not value.strip():
-        return None
-    return value
+        return True, None
+    return True, value
 
 
 def get_app_password(
@@ -100,7 +110,38 @@ def get_app_password(
     """
 
     active_environ = os.environ if environ is None else environ
-    return _password_from(secrets) or _password_from(active_environ)
+    secret_is_configured, secret_value = _password_from(secrets)
+    if secret_is_configured:
+        # An explicit but malformed secret must fail closed.  Falling through
+        # to a stale environment value would violate Secrets precedence.
+        return secret_value
+    _, environment_value = _password_from(active_environ)
+    return environment_value
+
+
+def is_four_digit_pin(value: Any) -> bool:
+    """Return whether *value* is exactly four ASCII decimal digits."""
+
+    return (
+        isinstance(value, str)
+        and len(value) == APP_PIN_LENGTH
+        and value.isascii()
+        and value.isdecimal()
+    )
+
+
+def is_valid_app_password(value: Any) -> bool:
+    """Accept a four-digit PIN or the existing long-password policy.
+
+    Leading and trailing whitespace is rejected so a deployment typo cannot
+    create a credential that is visually difficult to reproduce.
+    """
+
+    if not isinstance(value, str) or value != value.strip():
+        return False
+    return is_four_digit_pin(value) or (
+        MIN_LONG_PASSWORD_LENGTH <= len(value) <= MAX_APP_PASSWORD_LENGTH
+    )
 
 
 def verify_password(candidate: Any, configured_password: Any) -> bool:
