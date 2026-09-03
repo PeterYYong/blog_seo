@@ -1,108 +1,83 @@
-# 🧪 Naver Search Ecology Architect (닥터스톤 SEO 에이전트)
+# Naver Blog Topic Opportunity Explorer
 
-**2026년 네이버 검색 환경(SmartBlock, AiRSearch)**에 최적화된 자율형 키워드 발굴 에이전트입니다.  
-단순 검색량이 아닌 **시장 포화도($S_k$)**와 **키워드 효율성($E_k$)** 수식을 기반으로, 경쟁이 적고 검색 니즈가 확실한 **'블루오션'** 토픽을 과학적으로 발굴합니다.
+네이버 공식 API의 월간 검색량 추정치와 블로그 검색 결과 수를 비교해, 먼저 검토할 블로그 주제 후보를 좁히는 Streamlit 대시보드입니다. Google Trends 한국 RSS는 급상승 주제의 출발점으로 사용합니다.
 
----
+`S_k`와 `E_k`는 네이버 공식 랭킹 점수나 상위 노출 확률이 아니라, 같은 실행 안에서 후보를 비교하기 위한 로컬 보조지표입니다.
 
-## 🚀 주요 기능 (Key Features)
+## 주요 기능
 
-### 1. 🧠 Auto-Brainstorming (자율 확장)
-- 사용자가 "맛집" 같은 대주제만 던져도, 에이전트가 알아서 **"데이트 코스", "현지인 맛집", "가성비 오마카세"** 등으로 세부 주제를 확장합니다.
-- 상황별 최적의 접미사(Suffix)를 조합하여 롱테일 키워드를 생성합니다.
+| 모드 | 동작 | 기본 조회량 (슬라이더 최대) |
+|---|---|---:|
+| 기초 키워드 분석 | 입력어를 의도별 표현으로 확장한 뒤 Search Ads 수요와 Blog Search 결과 수를 확인 | 20개 (30개) |
+| 한국 급상승 주제 | Google Trends 한국 RSS의 주제를 가져와 네이버 지표로 교차 확인 | 15개 (50개) |
+| 니치 마켓 탐색 | Search Ads 연관 키워드를 수요순으로 정렬한 뒤 Blog Search로 검증 | 30개 (50개) |
 
-### 2. 🌊 Trend Deep Diver (실시간 트렌드 분석)
-- **`src/trend_hunter.py`**
-- 실시간 급상승 검색어(Signal.bz)를 크롤링하여 트렌드를 파악합니다.
-- 해당 트렌드 키워드를 시드로 삼아 심층 분석(Deep Dive)을 수행, 당장 글을 써야 할 '핫한' 주제를 선별합니다.
+- 외부 API 실패를 0으로 바꾸지 않고 해당 행을 제외합니다.
+- Search Ads가 반환한 `< 10` 값은 범위 추정임을 표시하고 원문 값을 보존합니다.
+- 월간 검색량 추정이 50 미만인 항목은 `근거 부족`으로 분류합니다.
+- 인증·할당량 오류는 남은 호출을 즉시 중단하고, 같은 출처의 서버·네트워크 오류가 두 키워드에서 연속되면 중단합니다.
+- 결과는 키워드 10분, 급상승 주제 5분 동안만 유효하며 조회 시각을 표시합니다.
+- 공개 데모는 세션당 30초 간격과 프로세스 전체 시간당 10회의 분석 제한을 둡니다. 대규모 운영에는 로그인 또는 외부 저장소 기반 제한이 추가로 필요합니다.
 
-### 3. 🦈 Niche Hunter (니치 마켓 발굴)
-- **`src/niche_hunter.py`**
-- 특정 관심사(예: "미국 주식")를 입력하면, 네이버 연관 검색어 API를 통해 **1,000개 이상의 관련 키워드**를 싹쓸이합니다.
-- 대량의 데이터 속에서 문서 발행량 대비 검색량이 높은 **숨겨진 보석(Blue Ocean)**을 찾아냅니다.
+## 설치
 
-### 4. 🧮 Scientific Scoring (과학적 지표)
-모든 분석은 닥터스톤만의 고유 공식을 따릅니다.
-- **$S_k$ (Saturation Index, 포화도):** $\frac{\text{총 문서수}}{\text{월간 검색량}}$
-  - $0.1 \le S_k < 1.0$: **💎 블루오션 (강력 추천)**
-  - $S_k \ge 5.0$: **💀 레드오션 (진입 금지)**
-- **$E_k$ (Efficiency Score, 효율성):** 검색 규모와 전환율을 고려한 최종 점수.
+Python 3.12를 권장합니다.
 
----
-
-## 🛠️ 설치 및 설정 (Setup)
-
-### 1. 필수 라이브러리 설치
 ```bash
-pip install requests pandas tabulate beautifulsoup4 lxml
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2. API 키 설정 (`secrets.json`)
-네이버 검색광고 API와 검색(Search) API 키가 필요합니다. 프로젝트 루트에 `secrets.json` 파일을 생성하세요.
+## API 자격 증명
 
-**`secrets.json` 형식:**
-```json
-{
-  "NAVER_AD_API_KEY": "YOUR_AD_API_KEY",
-  "NAVER_AD_SECRET_KEY": "YOUR_AD_SECRET_KEY",
-  "NAVER_CUSTOMER_ID": "YOUR_CUSTOMER_ID",
-  "NAVER_CLIENT_ID": "YOUR_SEARCH_CLIENT_ID",
-  "NAVER_CLIENT_SECRET": "YOUR_SEARCH_CLIENT_SECRET"
-}
+다음 값을 환경 변수, 로컬 `secrets.json`, 또는 Streamlit secrets에 설정합니다. 비밀 파일은 저장소에 커밋하지 않습니다.
+
+```text
+NAVER_AD_API_KEY
+NAVER_AD_SECRET_KEY
+NAVER_CUSTOMER_ID
+
+NAVER_API_HUB_CLIENT_ID
+NAVER_API_HUB_CLIENT_SECRET
 ```
 
----
+기존 Naver Developers 검색 키도 유예 기간 동안 지원합니다.
 
-## 💻 사용 방법 (Usage)
-
-### 1️⃣ 기본 키워드 분석 (Basic Agent)
-특정 키워드 하나에 대해 아이디어를 확장하고 분석합니다.
-```bash
-python src/main.py --seed "강남역 맛집"
+```text
+NAVER_CLIENT_ID
+NAVER_CLIENT_SECRET
 ```
 
-### 2️⃣ 실시간 트렌드 사냥 (Trend Hunter)
-지금 뜨고 있는 이슈 중 블루오션 키워드를 찾습니다.
-```bash
-python src/trend_hunter.py
-```
+검색광고 키는 월간 검색량·연관 키워드용이고, API HUB 또는 기존 Developers 키는 블로그 검색 결과 수용입니다. 둘 다 있어야 세 분석 모드가 활성화됩니다.
 
-### 3️⃣ 분야별 대량 채굴 (Niche Hunter)
-특정 카테고리를 입력하면 관련 키워드 수백~수천 개를 분석하여 리포트를 만듭니다. (시간 소요됨)
-```bash
-### 4️⃣ 웹 대시보드 (Streamlit)
-웹 브라우저에서 편리하게 분석할 수 있습니다.
+- [Naver Search Ads API](https://naver.github.io/searchad-apidoc/)
+- [NAVER API HUB](https://guide.ncloud-docs.com/docs/apihub-overview)
+- [Naver Blog Search API](https://api.ncloud-docs.com/docs/naver-api-hub-search-blog)
+
+## 실행
+
 ```bash
 streamlit run src/app.py
 ```
-- **Mode A:** 단일 키워드 분석
-- **Mode B:** 실시간 트렌드 딥 다이브
-- **Mode C:** 니치 마켓 헌터 (카테고리 채굴)
 
----
+CLI도 사용할 수 있습니다.
 
-## 📂 파일 구조 (File Structure)
-
-```
-📂 루트 (Topic/)
-├── 📄 main.py                # (Legacy) 구형 진입점
-├── 📄 secrets.json           # API 키 저장소 (필수)
-├── 📄 README.md              # 프로젝트 설명서
-│
-├── 📂 src/                   # 핵심 소스 코드
-│   ├── 📄 main.py            # [메인] 기본 에이전트 실행 파일
-│   ├── 📄 trend_hunter.py    # [모듈] 실시간 트렌드 분석기
-│   ├── 📄 niche_hunter.py    # [모듈] 대량 연관검색어 채굴기
-│   ├── 📄 data_fetcher.py    # Naver API 연동 및 데이터 수집
-│   ├── 📄 calculator.py      # Sk, Ek 지표 계산 로직
-│   └── 📄 keyword_expander.py# 브레인스토밍 및 키워드 확장 로직
-│
-└── 📂 reports/               # 분석 결과 리포트 저장소 (.md)
-    ├── 📄 result_REAL_...    # 기본 분석 결과
-    ├── 📄 TREND_HUNT_...     # 트렌드 분석 결과
-    └── 📄 NICHE_...          # 니치 마켓 분석 결과
+```bash
+python -m src.main --seed "강남역 맛집" --limit 20
+python -m src.trend_hunter --trend-limit 5 --keyword-limit 30
+python -m src.niche_hunter --seed "미국 주식" --limit 30
 ```
 
----
+CLI는 `reports/`에 Markdown 보고서를 생성합니다. 범위 추정 여부와 PC·모바일 원문 값도 함께 기록합니다.
 
-**Tip:** 생성된 Markdown 리포트(`reports/*.md`)는 VS Code나 Obsidian 등에서 열어보면 깔끔한 표 형태로 확인할 수 있습니다.
+## 검증
+
+```bash
+python -m compileall -q src tests
+pytest -q
+```
+
+GitHub Actions가 Python 3.12에서 전체 회귀 테스트를 실행합니다. 실제 API 키 없이도 API 계약, 오류 처리, 세 Streamlit 모드, CLI 보고서를 모의 응답으로 검증합니다.
+
+자세한 지표 정의와 한계는 [METHODOLOGY.md](METHODOLOGY.md)를 참고하세요.
