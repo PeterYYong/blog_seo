@@ -9,6 +9,8 @@ from src.app_auth import (
     build_authenticated_session,
     get_app_password,
     get_password_throttle_status,
+    is_four_digit_pin,
+    is_valid_app_password,
     verify_password,
 )
 
@@ -30,11 +32,25 @@ def test_streamlit_secret_takes_precedence_over_stale_environment_password():
     assert password == "streamlit-secret"
 
 
-def test_password_falls_back_to_secrets_and_missing_or_invalid_values_fail_closed():
+def test_missing_or_invalid_values_fail_closed():
     assert get_app_password({"APP_PASSWORD": "streamlit-secret"}, {}) == "streamlit-secret"
     assert get_app_password({}, {}) is None
     assert get_app_password({"APP_PASSWORD": "   "}, {}) is None
     assert get_app_password({"APP_PASSWORD": 1234}, {}) is None
+
+
+def test_explicit_invalid_secret_never_falls_back_to_stale_environment_password():
+    environment = {"APP_PASSWORD": "environment-password-at-least-20"}
+
+    assert get_app_password({"APP_PASSWORD": 1234}, environment) is None
+    assert get_app_password({"APP_PASSWORD": "   "}, environment) is None
+
+
+def test_missing_secret_key_falls_back_to_environment_password():
+    assert get_app_password(
+        {},
+        {"APP_PASSWORD": "environment-password-at-least-20"},
+    ) == "environment-password-at-least-20"
 
 
 def test_unavailable_secrets_mapping_does_not_expose_or_break_environment_fallback():
@@ -45,6 +61,39 @@ def test_unavailable_secrets_mapping_does_not_expose_or_break_environment_fallba
     assert get_app_password(UnavailableSecrets(), {"APP_PASSWORD": "environment-secret"}) == (
         "environment-secret"
     )
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["0123", "9876", "x" * 20, "x" * 256],
+)
+def test_app_password_policy_accepts_four_ascii_digits_or_long_password(value):
+    assert is_valid_app_password(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "123",
+        "12345",
+        "12a4",
+        "１２３４",
+        " 1234",
+        "1234 ",
+        "x" * 19,
+        "x" * 257,
+        1234,
+        None,
+    ],
+)
+def test_app_password_policy_rejects_ambiguous_or_unsupported_values(value):
+    assert not is_valid_app_password(value)
+
+
+def test_four_digit_pin_check_is_ascii_only_and_preserves_leading_zero():
+    assert is_four_digit_pin("0123")
+    assert not is_four_digit_pin("１２３４")
+    assert not is_four_digit_pin("12a4")
 
 
 def test_password_verification_uses_fixed_width_constant_time_comparison(monkeypatch):

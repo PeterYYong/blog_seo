@@ -23,6 +23,7 @@ if current_dir not in sys.path:
 
 try:
     from app_auth import (
+        MAX_APP_PASSWORD_LENGTH,
         AUTH_SESSION_STATE_KEY,
         AuthenticationStatus,
         authenticate_password,
@@ -30,6 +31,8 @@ try:
         build_authenticated_session,
         get_app_password,
         get_password_throttle_status,
+        is_four_digit_pin,
+        is_valid_app_password,
     )
     from calculator import (
         calculate_saturation,
@@ -57,6 +60,7 @@ try:
 except ImportError:  # pragma: no cover - package execution path
     sys.path.append(os.path.join(current_dir, ".."))
     from src.app_auth import (
+        MAX_APP_PASSWORD_LENGTH,
         AUTH_SESSION_STATE_KEY,
         AuthenticationStatus,
         authenticate_password,
@@ -64,6 +68,8 @@ except ImportError:  # pragma: no cover - package execution path
         build_authenticated_session,
         get_app_password,
         get_password_throttle_status,
+        is_four_digit_pin,
+        is_valid_app_password,
     )
     from src.calculator import (
         calculate_saturation,
@@ -173,8 +179,6 @@ KST = ZoneInfo("Asia/Seoul")
 
 SESSION_COOLDOWN_SECONDS = 30
 GLOBAL_ANALYSIS_LIMIT_PER_HOUR = 10
-MIN_APP_PASSWORD_LENGTH = 20
-MAX_APP_PASSWORD_LENGTH = 256
 DATALAB_MAX_LAG_DAYS = 2
 
 
@@ -205,18 +209,11 @@ def require_password_login() -> None:
             "관리자가 Streamlit Secrets에 APP_PASSWORD를 설정해야 합니다."
         )
         st.stop()
-    if len(configured_password) < MIN_APP_PASSWORD_LENGTH:
+    if not is_valid_app_password(configured_password):
         st.title("🔒 네이버 블로그 주제 기회 탐색기")
         st.error(
-            f"APP_PASSWORD가 너무 짧아 앱을 잠갔습니다. "
-            f"관리자가 {MIN_APP_PASSWORD_LENGTH}자 이상의 고유한 비밀번호로 바꿔야 합니다."
-        )
-        st.stop()
-    if len(configured_password) > MAX_APP_PASSWORD_LENGTH:
-        st.title("🔒 네이버 블로그 주제 기회 탐색기")
-        st.error(
-            f"APP_PASSWORD가 너무 길어 앱을 잠갔습니다. "
-            f"관리자가 {MAX_APP_PASSWORD_LENGTH}자 이하로 바꿔야 합니다."
+            "APP_PASSWORD 형식이 올바르지 않아 앱을 잠갔습니다. "
+            "숫자 4자리 PIN 또는 20~256자 비밀번호로 설정해야 합니다."
         )
         st.stop()
 
@@ -227,6 +224,10 @@ def require_password_login() -> None:
         configured_password,
         signing_key,
     ):
+        if is_four_digit_pin(configured_password):
+            st.sidebar.warning(
+                "4자리 PIN 보호 사용 중: 편리하지만 공개 인터넷에서 강한 인증은 아닙니다."
+            )
         if st.sidebar.button("로그아웃", key="app_logout", use_container_width=True):
             for key in (
                 AUTH_SESSION_STATE_KEY,
@@ -249,7 +250,7 @@ def require_password_login() -> None:
 
     with st.form("app_password_form", clear_on_submit=True):
         candidate = st.text_input(
-            "비밀번호",
+            "비밀번호 또는 4자리 PIN",
             type="password",
             max_chars=MAX_APP_PASSWORD_LENGTH,
             disabled=throttle.locked,
@@ -270,10 +271,10 @@ def require_password_login() -> None:
             )
             st.rerun()
         elif result.status is AuthenticationStatus.LOCKED:
-            st.error("비밀번호를 5회 잘못 입력해 5분 동안 로그인이 잠겼습니다.")
+            st.error("비밀번호/PIN을 5회 잘못 입력해 5분 동안 로그인이 잠겼습니다.")
         else:
             st.error(
-                f"비밀번호가 올바르지 않습니다. 남은 시도 횟수: {result.attempts_remaining}회"
+                f"비밀번호/PIN이 올바르지 않습니다. 남은 시도 횟수: {result.attempts_remaining}회"
             )
     st.stop()
 
