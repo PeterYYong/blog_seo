@@ -309,6 +309,36 @@ def test_datalab_rejects_missing_results_in_success_payload():
         )
 
 
+def test_datalab_normalizes_valid_ratio_to_float():
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "results": [
+                        {
+                            "title": "성수 카페",
+                            "data": [{"period": "2026-09-01", "ratio": 10}],
+                        }
+                    ]
+                }
+            )
+        ]
+    )
+    client = NaverClient(
+        secrets={"NAVER_CLIENT_ID": "id", "NAVER_CLIENT_SECRET": "secret"},
+        session=session,
+    )
+
+    result = client.datalab_trends(
+        ["성수 카페"],
+        date(2026, 7, 1),
+        date(2026, 9, 1),
+    )
+
+    assert result["성수 카페"][0]["ratio"] == 10.0
+    assert isinstance(result["성수 카페"][0]["ratio"], float)
+
+
 @pytest.mark.parametrize(
     "data",
     [
@@ -317,6 +347,8 @@ def test_datalab_rejects_missing_results_in_success_payload():
         [{"period": "2026-09-01", "ratio": None}],
         [{"period": "2026-09-01", "ratio": float("nan")}],
         [{"period": "2026-09-01", "ratio": -1}],
+        [{"period": "2026-09-01", "ratio": 100.01}],
+        [{"period": "2026-09-01", "ratio": "10"}],
     ],
 )
 def test_datalab_rejects_malformed_series_points(data):

@@ -8,6 +8,7 @@ into zero-demand or zero-competition observations.
 from __future__ import annotations
 
 import unicodedata
+from datetime import datetime, timezone
 from typing import Any
 
 try:
@@ -53,7 +54,8 @@ class RealDataFetcher:
         return int(self.client.blog_search(keyword, display=1, sort="sim")["total"])
 
     def get_related_keywords(self, seed_keyword: str) -> list[dict[str, Any]]:
-        seed_keyword = self._validate_keyword(seed_keyword)
+        """Return the legacy compact related-keyword shape (volume >= 100)."""
+
         return [
             {
                 "keyword": row["keyword"],
@@ -62,8 +64,28 @@ class RealDataFetcher:
                 "pc_raw": row["pc_raw"],
                 "mobile_raw": row["mobile_raw"],
             }
-            for row in self.client.related_keywords(seed_keyword, min_volume=100, limit=1000)
+            for row in self.get_related_keyword_details(
+                seed_keyword,
+                min_volume=100,
+                limit=1000,
+            )
         ]
+
+    def get_related_keyword_details(
+        self,
+        seed_keyword: str,
+        *,
+        min_volume: int = 0,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
+        """Return canonical Search Ads rows with uncertainty/source metadata."""
+
+        seed_keyword = self._validate_keyword(seed_keyword)
+        return self.client.related_keywords(
+            seed_keyword,
+            min_volume=min_volume,
+            limit=limit,
+        )
 
 
 def fetch_keyword_data(
@@ -87,6 +109,7 @@ def fetch_keyword_data(
         "Search_Volume_Censored": bool(volume["volume_censored"]),
         "Search_Volume_PC_Raw": volume["pc_raw"],
         "Search_Volume_Mobile_Raw": volume["mobile_raw"],
+        "Retrieved_At": datetime.now(timezone.utc).isoformat(),
         "Total_Docs": blog_doc_count,
         "Blog_Doc_Count": blog_doc_count,
         "SmartBlock_Type": "공식 API로 확인 불가",
