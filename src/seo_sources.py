@@ -18,6 +18,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from numbers import Real
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -558,7 +559,12 @@ class NaverClient:
                         )
                     period = point.get("period")
                     ratio = point.get("ratio")
-                    if not isinstance(period, str) or not period.strip() or isinstance(ratio, bool):
+                    if (
+                        not isinstance(period, str)
+                        or not period.strip()
+                        or isinstance(ratio, bool)
+                        or not isinstance(ratio, Real)
+                    ):
                         raise SourceError(
                             "naver_datalab",
                             "missing or invalid response field: period/ratio",
@@ -570,12 +576,18 @@ class NaverClient:
                             "naver_datalab",
                             "missing or invalid response field: ratio",
                         ) from exc
-                    if not math.isfinite(numeric_ratio) or numeric_ratio < 0:
+                    if (
+                        not math.isfinite(numeric_ratio)
+                        or numeric_ratio < 0
+                        or numeric_ratio > 100
+                    ):
                         raise SourceError(
                             "naver_datalab",
                             "missing or invalid response field: ratio",
                         )
-                    validated_points.append(dict(point))
+                    validated_point = dict(point)
+                    validated_point["ratio"] = numeric_ratio
+                    validated_points.append(validated_point)
                 output[title.strip()] = validated_points
         return output
 

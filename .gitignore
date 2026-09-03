@@ -2,9 +2,13 @@
 secrets.json
 .streamlit/secrets.toml
 .streamlit/
+.env
+.env.*
+!.env.example
 
 # Python / Environment
 .venv/
+.test-venv/
 venv/
 __pycache__/
 *.pyc
