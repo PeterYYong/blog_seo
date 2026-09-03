@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from collections.abc import Iterable
 
 # 대주제 매핑 (브레인스토밍용)
 BROAD_TOPIC_MAP = {
@@ -9,11 +9,26 @@ BROAD_TOPIC_MAP = {
     "여행": ["일본 여행", "다낭 여행", "환율 우대", "해외여행 준비물"]
 }
 
-def expand_keyword(seed_keyword: str) -> Tuple[List[str], List[str]]:
+def _ordered_unique(values: Iterable[str]) -> list[str]:
+    """Return unique strings without losing their first-seen order."""
+
+    return list(dict.fromkeys(values))
+
+
+def expand_keyword(seed_keyword: str) -> tuple[list[str], list[str]]:
     """
     키워드 성격에 따라 적절한 접미사(Suffix)를 붙여 확장합니다.
+
+    The seed is normalised once so that equivalent user input produces the
+    same ordered result on every run.
     """
-    
+
+    if not isinstance(seed_keyword, str):
+        raise TypeError("seed_keyword must be a string")
+    seed_keyword = " ".join(seed_keyword.split())
+    if not seed_keyword:
+        raise ValueError("seed_keyword must not be empty")
+
     # 1. 기본 쇼핑/리뷰형 접미사 (맛집, 제품 등)
     base_suffixes = ["추천", "비교", "후기", "방법", "내돈내산", "가격", "장단점"]
     
@@ -24,11 +39,10 @@ def expand_keyword(seed_keyword: str) -> Tuple[List[str], List[str]]:
     # 3. 정보성/How-to형 접미사
     info_suffixes = ["하는법", "신청", "조회", "사이트", "사용법"]
 
-    expanded_list = []
-    expanded_list.append(seed_keyword) # 원본 포함
+    expanded_list = [seed_keyword]  # 원본 포함
 
     # 대주제(Broad Topic) 확인
-    sub_topics = BROAD_TOPIC_MAP.get(seed_keyword, [])
+    sub_topics = list(BROAD_TOPIC_MAP.get(seed_keyword, []))
     targets = sub_topics if sub_topics else [seed_keyword]
 
     for target in targets:
@@ -40,9 +54,9 @@ def expand_keyword(seed_keyword: str) -> Tuple[List[str], List[str]]:
             target_suffixes = base_suffixes + info_suffixes # 리뷰+정보 위주
         else:
             # 잘 모를 땐 다 섞어서 (가장 강력함)
-            target_suffixes = list(set(base_suffixes + news_suffixes + info_suffixes))
+            target_suffixes = _ordered_unique(base_suffixes + news_suffixes + info_suffixes)
 
         for suffix in target_suffixes:
             expanded_list.append(f"{target} {suffix}")
             
-    return list(set(expanded_list)), sub_topics
+    return _ordered_unique(expanded_list), sub_topics

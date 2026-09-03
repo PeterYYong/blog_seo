@@ -1,54 +1,114 @@
-import pandas as pd
 import math
+from numbers import Real
+from typing import Literal
 
-def calculate_saturation(doc_count: int, search_volume: int) -> float:
-    """
-    Calculates the Market Saturation Index (Sk).
-    Formula: Sk = Total Docs / Monthly Search Vol
-    
-    [Safety Logic]
-    1. Cut-off: If Search Volume < 50, return 0.0 (Statistically insignificant).
-    2. Smoothing: If Search Volume is 0, return 999.0 (High Saturation/Error).
-    """
-    # 1. Volume Cut-off
-    if search_volume < 50:
-        return 0.0
-        
-    # 2. Prevent Division by Zero
-    if search_volume == 0:
-        return 999.0
-        
-    return doc_count / search_volume
+import pandas as pd
 
-def calculate_efficiency(saturation: float, search_volume: int, conversion_rate: float = 0.05) -> float:
+
+MIN_MEANINGFUL_VOLUME = 50
+LOW_SUPPLY_RATIO_THRESHOLD = 1.0
+HIGH_SUPPLY_RATIO_THRESHOLD = 5.0
+
+KeywordClassification = Literal[
+    "insufficient_data",
+    "low_supply_ratio",
+    "moderate_supply_ratio",
+    "high_supply_ratio",
+]
+
+
+def _nonnegative_number(
+    value: Real,
+    name: str,
+    *,
+    allow_positive_infinity: bool = False,
+) -> float:
+    """Validate a numeric metric without accepting booleans or NaN values."""
+
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must be a real number")
+
+    numeric = float(value)
+    if math.isnan(numeric) or numeric == -math.inf:
+        raise ValueError(f"{name} must be finite")
+    if numeric == math.inf and not allow_positive_infinity:
+        raise ValueError(f"{name} must be finite")
+    if numeric < 0:
+        raise ValueError(f"{name} must be nonnegative")
+    return numeric
+
+
+
+def calculate_saturation(doc_count: Real, search_volume: Real) -> float:
     """
-    Calculates the Efficiency Score (Ek).
-    Formula: Ek = (Conversion Rate / (Sk + 1.0)) * log10(Search Vol)
-    
-    [Safety Logic]
-    1. Cut-off: If Search Volume < 50, return 0.0.
-    2. Smoothing: Denominator uses (Sk + 1.0) to prevent division by zero if Sk=0.
-    3. Log Safety: Uses math.log10(max(search_volume, 1)).
+    Calculate the legacy document-count/search-volume ratio.
+
+    This is a weak content-supply proxy, not a Naver ranking score.  A zero or
+    missing search volume must never become a perfect (zero) saturation score.
     """
-    # 1. Volume Cut-off
-    if search_volume < 50:
+    documents = _nonnegative_number(doc_count, "doc_count")
+    volume = _nonnegative_number(search_volume, "search_volume")
+    if volume == 0:
+        return math.inf
+    return documents / volume
+
+
+def calculate_efficiency(
+    saturation: Real,
+    search_volume: Real,
+    conversion_rate: Real = 0.05,
+) -> float:
+    """
+    Calculate the backwards-compatible local exploration score ``Ek``.
+
+    ``conversion_rate`` is a historical scaling constant retained for API
+    compatibility. It is not an observed conversion rate and must not be
+    interpreted as one. The score only ranks rows within the same run.
+    """
+    ratio = _nonnegative_number(
+        saturation,
+        "saturation",
+        allow_positive_infinity=True,
+    )
+    volume = _nonnegative_number(search_volume, "search_volume")
+    rate = _nonnegative_number(conversion_rate, "conversion_rate")
+    if rate > 1:
+        raise ValueError("conversion_rate must be between 0 and 1")
+
+    if volume < MIN_MEANINGFUL_VOLUME or math.isinf(ratio):
         return 0.0
-        
-    # 3. Log Safety & Formula Application
-    # Ek = (CR / (Sk + 1.0)) * log10(Vol)
-    try:
-        log_val = math.log10(max(search_volume, 1))
-        score = (conversion_rate / (saturation + 1.0)) * log_val
-        return score
-    except Exception:
-        return 0.0
+
+    return (rate / (ratio + 1.0)) * math.log10(volume)
+
+
+def classify_keyword(
+    saturation: Real,
+    search_volume: Real,
+) -> KeywordClassification:
+    """Classify the legacy ratio without presenting it as a ranking outcome."""
+
+    ratio = _nonnegative_number(
+        saturation,
+        "saturation",
+        allow_positive_infinity=True,
+    )
+    volume = _nonnegative_number(search_volume, "search_volume")
+
+    if volume < MIN_MEANINGFUL_VOLUME or math.isinf(ratio):
+        return "insufficient_data"
+    if ratio < LOW_SUPPLY_RATIO_THRESHOLD:
+        return "low_supply_ratio"
+    if ratio < HIGH_SUPPLY_RATIO_THRESHOLD:
+        return "moderate_supply_ratio"
+    return "high_supply_ratio"
+
 
 def filter_keywords(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Filters out keywords where Sk >= 5.0.
-    Also handles the case where Sk is 0.0 due to low volume (optional, but strictly kept < 5.0 per user rule).
-    
-    Expects 'saturation_index' or 'Saturation_Index' column.
+    Apply the legacy heuristic while excluding low/unknown-demand rows.
+
+    The threshold is retained for backwards compatibility only.  Use the
+    evidence-first opportunity workflow for recommendations.
     """
     target_col = 'saturation_index'
     if 'Saturation_Index' in df.columns:
@@ -59,9 +119,22 @@ def filter_keywords(df: pd.DataFrame) -> pd.DataFrame:
         # Assuming DataFetcher always provides it via main.py loop.
         raise ValueError("DataFrame must contain 'Saturation_Index' column")
     
-    # Filter: Keep only where Sk < 5.0
-    # Note: If Sk == 0.0 (Low Volume), it passes this filter.
-    # Users should sort by Efficiency to push 0.0 scores to the bottom.
-    filtered_df = df[df[target_col] < 5.0].copy()
+    volume_col = None
+    for candidate in ("Monthly_Search_Volume", "monthly_search_volume"):
+        if candidate in df.columns:
+            volume_col = candidate
+            break
+    if volume_col is None:
+        raise ValueError("DataFrame must contain a monthly search-volume column")
+
+    classifications = [
+        classify_keyword(saturation, volume)
+        for saturation, volume in zip(df[target_col], df[volume_col])
+    ]
+    keep = [
+        classification in {"low_supply_ratio", "moderate_supply_ratio"}
+        for classification in classifications
+    ]
+    filtered_df = df.loc[keep].copy()
     
     return filtered_df

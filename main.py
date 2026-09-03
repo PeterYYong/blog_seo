@@ -101,4 +101,4 @@ def main():
     print(f"Report generated successfully: {report_filename}")
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
