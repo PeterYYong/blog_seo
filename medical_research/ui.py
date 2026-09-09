@@ -418,7 +418,10 @@ def run() -> None:
     if signature != st.session_state.get("medical_result_signature"):
         st.info("입력 조건이 변경되었습니다. 아래는 마지막 실행 조건의 결과이며, 새 조건을 적용하려면 다시 탐색하세요.")
     st.caption(f"결과 기준: {PRESETS[result['config']['preset']]['label']} · {_utc_label(result.get('retrieved_at', ''))}")
-    tabs = st.tabs(["문헌 지도", "주제 후보", "관련 논문", "연구 질문 메모"])
+    tabs = st.tabs(
+        ["문헌 지도", "주제 후보", "관련 논문", "연구 질문 메모"],
+        key="medical_results_tab", on_change="rerun",
+    )
     with tabs[0]:
         _overview(result)
     with tabs[1]:

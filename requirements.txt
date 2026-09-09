@@ -1,4 +1,4 @@
-streamlit>=1.50,<2
+streamlit>=1.63,<2
 altair>=5,<7
 pandas>=2.2,<4
 requests>=2.32,<3
